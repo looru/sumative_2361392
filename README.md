@@ -1,69 +1,58 @@
-    Applied Health Data Science Summative Assessment:  
-            Health Data Science Mini Project 
+## Applied Health Data Science Summative Assessment  
+# Health Data Science Mini Project
 
-## Step 1: Downloading a set of research articles on the topic of technology addiction
+This repository contains the code and outputs for my summative assessment on **text mining PubMed articles related to gaming and digital addiction** using **tidyverse**, **tidytext**, and **topic modelling (LDA)**.
 
-# To retrieve the article IDs
+---
 
-#!/bin/bash
+## Project Overview
 
-API_BASE="https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+The project uses the PubMed E-utilities API to:
 
-SEARCH_TERM="\"gaming+disorder\"+OR+\"smartphone+addiction\"+OR+\"internet+addiction\""
+1. **Download article metadata and abstracts** for a search on  
+   `"gaming disorder" OR "smartphone addiction" OR "internet addiction" OR "social media addiction"`.
+2. **Parse and clean the XML** into a tidy tabular format.
+3. **Process article titles and abstracts** using tidytext:
+   - Tokenisation (one-token-per-row)
+   - Stop-word and digit removal
+   - Optional stemming
+4. **Perform descriptive and advanced text analyses**, including:
+   - Trends in key title words over time
+   - Comparison word cloud of title words across years
+   - **LDA topic modelling applied to abstracts**
+   - Temporal trends in topic prevalence over publication years
 
-PMIDS_FILE="../data/raw/pmids.xml"
+Key outputs are stored in `data/processed/` and visualisations in `figures/`.
 
-echo "--- starting PMID download ---"
+---
 
-SEARCH_URL="${API_BASE}/esearch.fcgi?db=pubmed&term=${SEARCH_TERM}&retmax=100000"
+## Repository Structure
 
-curl "${SEARCH_URL}" > "${PMIDS_FILE}"
-
-echo "PMID list downloaded to ${PMIDS_FILE}"
-
-echo "--- starting article metadata download ---"
-
-PMID_LIST=$(grep -oP '(?<=<Id>)[0-9]+(?=</Id>)' "${PMIDS_FILE}")
-
-COUNT=0
-BATCH_SIZE=20
-
-
-for PMID in ${PMID_LIST}; do
-
-    if [ "$COUNT" -ge "$MAX_ARTICLES" ]; then
-        echo "Reached maximum article limit of ${MAX_ARTICLES}. Stopping download."
-        break
-    fi
-
-    FETCH_URL="${API_BASE}/efetch.fcgi?db=pubmed&id=${PMID}&retmode=xml"
-    OUTPUT_FILE="../data/raw/article-data-${PMID}.xml"
-
-    echo "Downloading article metadata for PMID: ${PMID} (${COUNT}/${MAX_ARTICLES})"
-
-
-    curl -s "${FETCH_URL}" > "${OUTPUT_FILE}"
-
-    sleep 1
-
-
-    COUNT=$((COUNT + 1))
-done
-
-echo "--- Article metadata download complete ---"
-
-
-## Step 2: Processing the downloaded XML files programmatically
-
- 
-
-
-## Step 3: Processing the titles using the tidytext package
-
-
-
-## Step 4: Producing a data visualization to demonstrate an interesting aspect of the data
-
-
-
-
+```text
+.
+├─ code/
+│  ├─ download_raw.sh                 # Bash script: download PMIDs + article XML from PubMed
+│  ├─ extract_articles.R              # Parse XML -> TSV (PMID, year, title, abstract)
+│  ├─ process_titles.R                # Tidytext processing of titles (tokens, stopwords, digits)
+│  ├─ comparison_cloud_year.R         # Comparison cloud + 4-segment word×year table
+│  ├─ advanced_lda_topics_over_time.R # LDA topic model + temporal topic trends
+│  └─ output1.R, output2.R            # Additional analysis / plotting scripts (if used)
+│
+├─ data/
+│  ├─ raw/                            # Raw XML files downloaded from PubMed
+│  └─ processed/                      # Cleaned TSV outputs
+│       ├─ pmid_year_title_abstract.tsv
+│       ├─ title_tokens_clean.tsv
+│       ├─ comparison_cloud_by_year_table.tsv
+│       ├─ lda_topic_top_terms.tsv
+│       └─ ...
+│
+├─ figures/
+│  ├─ word_trends.png                 # Trends of key title words over time
+│  ├─ comparison_cloud_by_year.png    # Comparison cloud of title words by year
+│  └─ lda_topics_over_time.png        # LDA topic proportions over time
+│
+├─ config.yaml                        # Config for Snakemake / environment
+├─ env_2361392.yml                    # Conda environment file
+├─ Snakefile                          # (Optional) pipeline definition using Snakemake
+└─ scripts.R                          # Wrapper to run the full pipeline from R
