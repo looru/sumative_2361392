@@ -8,7 +8,7 @@ library(SnowballC)
 library(tibble)
 
 
-df <- read_tsv("data/processed/pmid_year_title_abstract.tsv",
+df <- read_tsv("data/clean/pmid_year_title_abstract.tsv",
                show_col_types = FALSE)
 
 
@@ -29,7 +29,7 @@ title_clean <- title_clean %>%
   select(PMID, word, stem)
 
 
-write_tsv(title_clean, "data/processed/title_tokens_clean.tsv")
+write_tsv(title_clean, "data/clean/title_tokens_clean.tsv")
 
 cat("Processed tidytext title tokens written to:\n")
-cat("  data/processed/title_tokens_clean.tsv\n")
+cat("  data/clean/title_tokens_clean.tsv\n")

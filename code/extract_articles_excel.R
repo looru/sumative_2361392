@@ -10,7 +10,7 @@ library(readr)
 raw_dir  <- "data/raw"
 out_dir  <- "data/clean"
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
-out_file <- file.path(out_dir, "pmid_year_title_abstract.tsv")
+out_file <- file.path(out_dir, "pmid_year_title_abstract.csv")
 
 get_year <- function(article_node) {
 

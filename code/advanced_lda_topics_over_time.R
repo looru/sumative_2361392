@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 
-# ---------------------------------
-# Advanced LDA Topic Trends Script
-# ---------------------------------
+# --------------------------------------------------------------------------------------
+# The Advanced Latent Dirichlet Allocation (LDA) topic model on article abstracts Script
+# --------------------------------------------------------------------------------------
 
 library(dplyr)
 library(readr)
@@ -15,7 +15,7 @@ library(tidyr)
 # -----------------------------
 # 1. Load cleaned data
 # -----------------------------
-df <- read_tsv("data/processed/pmid_year_title_abstract.tsv",
+df <- read_tsv("data/clean/pmid_year_title_abstract.tsv",
                show_col_types = FALSE)
 
 data("stop_words")
@@ -94,9 +94,9 @@ p_trends <- ggplot(topic_trends,
   geom_point(linewidth = 2) +
   scale_color_brewer(palette = "Dark2") +
   labs(
-    title = "Changes in LDA Topics Over Time",
+    title = "Changes in digital addiction and gambling topics over time",
     x = "Year",
-    y = "Average Topic Probability",
+    y = "Average topic probability",
     color = "Topic"
   ) +
   theme_minimal(base_size = 14)
