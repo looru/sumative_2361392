@@ -22,7 +22,7 @@ The project uses the PubMed E-utilities API to:
    - **LDA topic modelling applied to abstracts**
    - Temporal trends in topic prevalence over publication years
 
-Key outputs are stored in `data/processedclean/` and visualisations in `figures/`.
+Key outputs are stored in `data/clean/` and visualisations in `figures/`.
 
 ---
 
@@ -79,15 +79,11 @@ Rule4: word_trends
 
 This rule generates descriptive visualisations of keyword frequencies across publication years. Using tidytext and ggplot2, the script constructed time-series plots for selected terms (e.g., gaming, internet, smartphone, addiction). The resulting word_trends.png provides an initial overview of thematic changes in the literature.
 
-Rule5: comparison_cloud
-
-This rule produces two outputs: A comparison word cloud illustrating the differential prominence of title words across the most frequent publication years. It uses tidyverse for text processing and the wordcloud package for visualisation. Outputs include comparison_cloud_by_year_table.tsv and comparison_cloud_by_year.png.
-
-Rule6: lda_topics
+Rule5: lda_topics
 
 This rule runs the advanced Latent Dirichlet Allocation (LDA) topic model on article abstracts. Using topicmodels, tidytext, and ggplot2, the script fits an LDA model with 𝑘=5. k=5 topics, extracts both term-level and document-level topic probabilities, and assigned human-readable topic names. Topic proportions are aggregated by publication year to produce a temporal trend plot (lda_topics_over_time.png). A table of top terms per topic (lda_topic_top_terms.tsv) is also saved to support interpretation.
 
-Rule7: all
+Rule6: all
 
 The final rule specifies the complete list of target outputs required for the workflow. Snakemake uses this rule to infer dependencies and execute the entire pipeline from raw data to final figures. This ensures that the pipeline is fully automated and can be reproduced simply by running:
 

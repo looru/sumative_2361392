@@ -30,6 +30,3 @@ title_clean <- title_clean %>%
 
 
 write_tsv(title_clean, "data/clean/title_tokens_clean.tsv")
-
-cat("Processed tidytext title tokens written to:\n")
-cat("  data/clean/title_tokens_clean.tsv\n")

@@ -12,11 +12,11 @@ library(ggplot2)
 library(tidyr)
 library(stringr)
 
-# ----------------- Ensure output dirs exist -----------------
+# Checking output directories existence
 if (!dir.exists("figures")) dir.create("figures", recursive = TRUE)
 if (!dir.exists("data/clean")) dir.create("data/clean", recursive = TRUE)
 
-# ----------------- Load data -----------------
+# Loading data
 df <- read_tsv("data/clean/pmid_year_title_abstract.tsv",
                show_col_types = FALSE)
 
@@ -30,7 +30,7 @@ df <- df %>%
     PMID = as.character(PMID)
   )
 
-# ----------------- Tokenize abstracts -----------------
+# Tokenizing abstracts
 abstract_tokens <- df %>%
   select(PMID, abstract) %>%
   unnest_tokens(word, abstract) %>%
@@ -38,18 +38,18 @@ abstract_tokens <- df %>%
   filter(!str_detect(word, "\\d")) %>%         # remove digits
   count(PMID, word, sort = TRUE)
 
-# ----------------- Cast to Document-Term Matrix (DTM) -----------------
+# Casting to Document-Term Matrix (DTM)
 dtm <- abstract_tokens %>%
   cast_dtm(PMID, word, n)
 
-# ----------------- Fit LDA model (k = 5 topics) -----------------
+# Fitting LDA model (k = 5 topics)
 set.seed(1234)
 k <- 5
 lda_model <- LDA(dtm, k = k, control = list(seed = 1234))
 
-# ============================================================
+# --------------------------------------------
 # 1. Top terms per topic (With names)
-# ============================================================
+# --------------------------------------------
 
 beta <- tidy(lda_model, matrix = "beta")  # term-topic probabilities
 
@@ -96,9 +96,9 @@ p_topics <- ggplot(top_terms_named,
 ggsave("figures/lda_topics_named.png",
        p_topics, width = 10, height = 7, dpi = 300)
 
-# ============================================================
+# ------------------------------------------------------------
 # 2. Topic prevalence over years (With names)
-# ============================================================
+# ------------------------------------------------------------
 
 gamma <- tidy(lda_model, matrix = "gamma")  # document-topic probabilities
 
@@ -145,9 +145,3 @@ p_trends <- ggplot(topic_trends,
 
 ggsave("figures/lda_topic_trends_named.png",
        p_trends, width = 10, height = 6, dpi = 300)
-
-cat("Saved:\n")
-cat("  - figures/lda_topics_named.png\n")
-cat("  - figures/lda_topic_trends_named.png\n")
-cat("  - data/clean/lda_topic_top_terms_named.tsv\n")
-cat("  - data/clean/lda_topic_trends_named.tsv\n")

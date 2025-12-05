@@ -120,5 +120,3 @@ cat("After cleaning, kept", nrow(articles_clean), "articles\n")
 
 
 write_tsv(articles_clean, out_file)
-
-cat("Wrote output file:\n  ", out_file, "\n")

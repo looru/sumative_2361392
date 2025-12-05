@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 library(dplyr)
 library(tidytext)
 library(ggplot2)
@@ -6,10 +8,10 @@ library(stringr)
 library(tidyr)
 library(purrr)
 
-# ----------------- Ensure output dir exists -----------------
+# Checking output directory existence
 if (!dir.exists("figures")) dir.create("figures", recursive = TRUE)
 
-# ----------------- Load data -----------------
+# Loading data
 df <- read_tsv("data/clean/pmid_year_title_abstract.tsv",
                show_col_types = FALSE)
 
@@ -19,10 +21,10 @@ df <- df %>%
   filter(year != "" & !is.na(year)) %>%
   mutate(year = as.integer(year))
 
-# ----------------- Words to track -----------------
+# Words to track
 words_of_interest <- c("addiction", "gaming", "internet", "smartphone")
 
-# ----------------- Tokenize and count -----------------
+# Tokenizing and counting
 df_words <- df %>%
   select(year, title) %>%
   unnest_tokens(word, title) %>%
@@ -31,7 +33,7 @@ df_words <- df %>%
   filter(word %in% words_of_interest) %>%
   count(year, word)
 
-# ----------------- Ensure full year × word grid -----------------
+# Ensuring full year × word grid
 df_words_complete <- df_words %>%
   complete(
     year = full_seq(year, 1),
@@ -39,10 +41,10 @@ df_words_complete <- df_words %>%
     fill = list(n = 0)
   )
 
-# ----------------- Forecasting until 2030 -----------------
+# Forecasting until 2030
 future_years <- 2026:2030
 
-# Fit a model per word: n ~ year (Poisson regression works well for counts)
+# Fitting a model per word: n ~ year (Poisson regression works well for counts)
 forecast_df <- df_words_complete %>%
   group_by(word) %>%
   do({
@@ -55,12 +57,12 @@ forecast_df <- df_words_complete %>%
            predicted = TRUE)
   })
 
-# Combine observed + predicted
+# Combining observed + predicted
 df_combined <- df_words_complete %>%
   mutate(predicted = FALSE) %>%
   bind_rows(forecast_df)
 
-# ----------------- Plot -----------------
+# Plotting
 plot_trends <- ggplot(df_combined,
                       aes(x = year, y = n, color = word, group = word)) +
   geom_line(data = df_combined %>% filter(!predicted), size = 1.2) +
@@ -77,7 +79,7 @@ plot_trends <- ggplot(df_combined,
   theme_minimal(base_size = 14) +
   theme(plot.title = element_text(face = "bold"))
 
-# ----------------- Save plot -----------------
+# Saving plot to file
 ggsave(
   filename = "figures/word_trends_forecast.png",
   plot = plot_trends,
@@ -85,5 +87,3 @@ ggsave(
   height = 6,
   dpi = 300
 )
-
-cat("Saved forecast plot to: figures/word_trends_forecast.png\n")
