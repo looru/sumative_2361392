@@ -1,4 +1,4 @@
-configfile: "config.yaml"
+configfile: "workflow_config.yaml"
 
 TEST       = config.get("test", True)
 FULL_MAX   = int(config.get("max_articles", 10000))

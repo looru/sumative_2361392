@@ -1,0 +1,331 @@
+# Step 2: Process the downloaded XML files programmatically, using bash
+
+#!/usr/bin/env Rscript
+
+library(xml2)
+library(dplyr)
+library(purrr)
+library(stringr)
+library(readr)
+
+
+raw_dir  <- "data/raw"          
+out_dir  <- "data/processed"
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+out_file <- file.path(out_dir, "pmid_year_title_abstract.tsv")
+
+
+get_year <- function(article_node) {
+
+  # Try <Year> node first
+  year_node <- xml_find_first(
+    article_node,
+    ".//Article/Journal/JournalIssue/PubDate/Year"
+  )
+  year <- xml_text(year_node)
+
+  if (!is.na(year) && str_detect(year, "^[0-9]{4}$")) return(year)
+
+  # Fallback: extract from MedlineDate like "2020 Jan-Feb"
+  medline_node <- xml_find_first(
+    article_node,
+    ".//Article/Journal/JournalIssue/PubDate/MedlineDate"
+  )
+  medline_text <- xml_text(medline_node)
+  year2 <- str_extract(medline_text, "\\b(19|20)[0-9]{2}\\b")
+
+  ifelse(is.na(year2), "", year2)
+}
+
+# -------- Parse ONE valid PubMed XML file --------
+parse_pubmed_file <- function(path) {
+
+  doc <- read_xml(path)
+
+  # Some files have one, others have multiple PubmedArticle nodes
+  articles <- xml_find_all(doc, ".//PubmedArticle")
+  if (length(articles) == 0L) articles <- list(doc)
+
+  map_dfr(articles, function(a) {
+
+    # PMID
+    pmid <- xml_text(xml_find_first(a, ".//MedlineCitation/PMID"))
+    if (is.na(pmid) || pmid == "")
+      pmid <- xml_text(xml_find_first(a, ".//PMID"))
+
+    # TITLE (remove XML tags, then clean whitespace)
+    title_raw <- xml_text(xml_find_first(a, ".//Article/ArticleTitle"), trim = TRUE)
+
+    title <- title_raw %>%
+      str_replace_all("<[^>]+>", "") %>%    # remove tags <i>, <b>, etc.
+      str_squish()
+
+    # YEAR
+    year <- get_year(a)
+
+    # ABSTRACT
+    abstract <- xml_find_all(a, ".//Abstract/AbstractText") %>%
+      xml_text(trim = TRUE) %>%
+      paste(collapse = " ") %>%
+      str_squish()
+
+    tibble(
+      PMID     = pmid     %||% "",
+      year     = year     %||% "",
+      title    = title    %||% "",
+      abstract = abstract %||% ""
+    )
+  })
+}
+
+# Default fallback helper
+`%||%` <- function(x, y) if (is.null(x) || is.na(x)) y else x
+
+# -------- SAFE version: skip corrupted / non-XML files --------
+safe_parse_pubmed_file <- function(path) {
+  tryCatch(
+    parse_pubmed_file(path),
+    error = function(e) {
+      message("Skipping file due to parse error: ", path)
+      tibble(
+        PMID     = character(),
+        year     = character(),
+        title    = character(),
+        abstract = character()
+      )
+    }
+  )
+}
+
+# -------- Main pipeline --------
+
+xml_files <- list.files(
+  raw_dir,
+  pattern = "^article-data-.*\\.xml$",
+  full.names = TRUE
+)
+
+cat("Found", length(xml_files), "XML files\n")
+
+if (length(xml_files) == 0L) {
+  stop("ERROR: No XML files found in ", raw_dir,
+       " matching pattern 'article-data-*.xml'")
+}
+
+# Parse all files safely (skips corrupt files automatically)
+articles <- map_dfr(xml_files, safe_parse_pubmed_file)
+
+# Remove rows missing titles + deduplicate on PMID
+articles_clean <- articles %>%
+  filter(title != "") %>%             # remove empty titles
+  distinct(PMID, .keep_all = TRUE)    # keep 1 per PMID
+
+cat("After cleaning, kept", nrow(articles_clean), "articles\n")
+
+# Write final TSV file
+write_tsv(articles_clean, out_file)
+
+cat("Wrote output file:\n  ", out_file, "\n")
+
+# Step 3: Process the titles using the tidytext package
+
+#!/usr/bin/env Rscript
+
+library(dplyr)
+library(stringr)
+library(readr)
+library(tidytext)
+library(SnowballC)   # optional stemming
+library(tibble)
+
+# -------- Load data (created in earlier steps) --------
+df <- read_tsv("data/processed/pmid_year_title_abstract.tsv",
+               show_col_types = FALSE)
+
+# -------- Unnest titles into tokens (words) --------
+# This mirrors the workflow in tidytextmining.com (e.g., NASA metadata example)
+title_tokens <- df %>%
+  select(PMID, title) %>%
+  unnest_tokens(word, title)        # splits title into individual words
+
+# -------- Remove stop words (tidytext built-in) --------
+data("stop_words")
+
+title_clean <- title_tokens %>%
+  anti_join(stop_words, by = "word") %>%   # remove stopwords
+  filter(!str_detect(word, "\\d"))         # remove any digits 0–9
+
+# -------- OPTIONAL: Stemming --------
+# Comment this block out if you don't want stemming
+title_clean <- title_clean %>%
+  mutate(stem = wordStem(word)) %>%        # stemmed version
+  select(PMID, word, stem)
+
+# -------- Save processed title tokens (tidytext style) --------
+write_tsv(title_clean, "data/processed/title_tokens_clean.tsv")
+
+cat("Processed tidytext title tokens written to:\n")
+cat("  data/processed/title_tokens_clean.tsv\n")
+
+
+## Step 4: Produce a data visualization to demonstrate an interesting aspect of the data
+
+# Trending Words Over Time
+#!/usr/bin/env Rscript
+
+library(dplyr)
+library(tidytext)
+library(ggplot2)
+library(stringr)
+library(readr)
+
+# Load cleaned title/abstract data (from Step 3)
+df <- read_tsv("data/processed/pmid_year_title_abstract.tsv",
+               show_col_types = FALSE)
+
+data("stop_words")
+
+# --- Tokenize titles into words ---
+title_words <- df %>%
+  unnest_tokens(word, title) %>%
+  anti_join(stop_words, by = "word") %>%
+  filter(!str_detect(word, "\\d"))     # remove digits
+
+# --- Count most common words per year ---
+top_words <- title_words %>%
+  count(year, word, sort = TRUE) %>%
+  group_by(year) %>%
+  slice_max(n, n = 10) %>%             # top 10 words per year
+  ungroup()
+
+# --- Plot word frequencies over time (like in tidytext book) ---
+ggplot(top_words, aes(x = year, y = n, fill = word)) +
+  geom_col(position = "stack") +
+  labs(
+    title = "Top Words in Article Titles Over Time",
+    x = "Year",
+    y = "Frequency"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+  # Frequency of Selected Words Over Time
+
+  library(dplyr)
+library(tidytext)
+library(ggplot2)
+library(readr)
+library(stringr)
+
+df <- read_tsv("data/processed/pmid_year_title_abstract.tsv",
+               show_col_types = FALSE)
+
+words_of_interest <- c("gaming", "internet", "smartphone", "addiction")
+
+df_words <- df %>%
+  unnest_tokens(word, title) %>%
+  filter(word %in% words_of_interest) %>%
+  count(year, word)
+
+ggplot(df_words, aes(x = year, y = n, color = word, group = word)) +
+  geom_line(size = 1.2) +
+  geom_point() +
+  labs(
+    title = "Trends of Key Terms in Article Titles Over Time",
+    x = "Year",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+
+  
+  # Frequency of Selected Words Over Time
+
+  library(dplyr)
+library(tidytext)
+library(ggplot2)
+library(readr)
+library(stringr)
+
+df <- read_tsv("data/processed/pmid_year_title_abstract.tsv",
+               show_col_types = FALSE)
+
+words_of_interest <- c("gaming", "internet", "smartphone", "addiction")
+
+df_words <- df %>%
+  unnest_tokens(word, title) %>%
+  filter(word %in% words_of_interest) %>%
+  count(year, word)
+
+ggplot(df_words, aes(x = year, y = n, color = word, group = word)) +
+  geom_line(size = 1.2) +
+  geom_point() +
+  labs(
+    title = "Trends of Key Terms in Article Titles Over Time",
+    x = "Year",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+
+
+# LDA Topic Model + Visualization
+
+#!/usr/bin/env Rscript
+
+library(dplyr)
+library(tidytext)
+library(readr)
+library(topicmodels)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+
+# Load abstract text
+df <- read_tsv("data/processed/pmid_year_title_abstract.tsv",
+               show_col_types = FALSE)
+
+data("stop_words")
+
+# --- Tokenize abstracts ---
+abstract_tokens <- df %>%
+  unnest_tokens(word, abstract) %>%
+  anti_join(stop_words, by = "word") %>%
+  filter(!str_detect(word, "\\d")) %>%
+  count(PMID, word, sort = TRUE)
+
+# --- Cast to Document-Term Matrix (DTM) ---
+dtm <- abstract_tokens %>%
+  cast_dtm(PMID, word, n)
+
+# --- Fit LDA model with k = 4 topics ---
+lda_model <- LDA(dtm, k = 4, control = list(seed = 123))
+
+# --- Extract top terms per topic ---
+topics <- tidy(lda_model, matrix = "beta")
+
+top_terms <- topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>%
+  ungroup() %>%
+  arrange(topic, desc(beta))
+
+# --- Visualize topics ---
+ggplot(top_terms, aes(x = reorder_within(term, beta, topic),
+                      y = beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_x_reordered() +
+  labs(
+    title = "LDA Topic Model: Top Terms in Each Topic",
+    x = "Term",
+    y = "Beta (Topic Weight)"
+  ) +
+  theme_minimal()
+
+
+
+
+
+
+
+
