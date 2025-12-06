@@ -61,11 +61,12 @@ This environment provides:
 -xml2 for parsing PubMed files
 
 4. Running the Pipeline on BluePebble
-Step 1 — Load Conda
+
+Step 1 — Loading Conda
 source ~/initConda.sh
 conda activate env_2361392
 
-Step 2 — Run Snakemake
+Step 2 — Running Snakemake
 
 The pipeline is executed with:
 
@@ -153,3 +154,4 @@ This repository includes:
 Wickham, H., & Grolemund, G. (2023). R for Data Science (2e).
 
 Silge, J., & Robinson, D. (2016). Text Mining with R.
+
